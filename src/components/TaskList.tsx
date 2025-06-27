@@ -3,7 +3,28 @@
 import { freelanceContractAddress } from "@/app/call";
 import { freelanceContractAbi } from "@/app/page";
 import { useEffect, useState } from "react";
-import { useReadContracts } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
+import {
+  Transaction,
+  TransactionButton,
+  TransactionStatus,
+  TransactionStatusAction,
+  TransactionStatusLabel,
+} from "@coinbase/onchainkit/transaction";
+import type { LifecycleStatus } from "@coinbase/onchainkit/transaction";
+import {
+  Wallet,
+  ConnectWallet,
+  WalletDropdown,
+  WalletDropdownDisconnect,
+} from "@coinbase/onchainkit/wallet";
+import {
+  Address,
+  Avatar,
+  Identity,
+  Name,
+  EthBalance,
+} from "@coinbase/onchainkit/identity";
 
 interface Task {
   client: `0x${string}`;
@@ -15,6 +36,7 @@ interface Task {
 }
 
 export function TaskList() {
+  const { address, chain } = useAccount();
   const [tasks, setTasks] = useState<Task[]>([]);
 
   // Get total number of tasks
@@ -52,6 +74,95 @@ export function TaskList() {
     }
   }, [tasksData]);
 
+  const handleTransactionStatus = (status: LifecycleStatus) => {
+    console.log("Transaction Status:", status);
+  };
+
+  function renderTaskActions(task: Task, index: number) {
+    if (!address) return null;
+
+    const isClient = address === task.client;
+    const isFreelancer = address === task.freelancer;
+    const isUnassigned =
+      task.freelancer === "0x0000000000000000000000000000000000000000";
+
+    switch (task.status) {
+      case 0: // Created
+        return isUnassigned ? (
+          <Transaction
+            chainId={chain?.id}
+            calls={[
+              {
+                address: freelanceContractAddress,
+                abi: freelanceContractAbi,
+                functionName: "acceptTask",
+                args: [BigInt(index)],
+              },
+            ]}
+            onStatus={handleTransactionStatus}
+          >
+            <TransactionButton text="Accept Task" />
+            <TransactionStatus className="mt-2">
+              <TransactionStatusLabel />
+              <TransactionStatusAction />
+            </TransactionStatus>
+          </Transaction>
+        ) : null;
+      case 1: // Accepted
+        return (
+          <div className="flex gap-2 mt-2">
+            {isFreelancer && (
+              <Transaction
+                chainId={chain?.id}
+                calls={[
+                  {
+                    address: freelanceContractAddress,
+                    abi: freelanceContractAbi,
+                    functionName: "markComplete",
+                    args: [BigInt(index)],
+                  },
+                ]}
+                onStatus={handleTransactionStatus}
+              >
+                <TransactionButton text="Mark Complete" />
+                <TransactionStatus className="mt-2">
+                  <TransactionStatusLabel />
+                  <TransactionStatusAction />
+                </TransactionStatus>
+              </Transaction>
+            )}
+          </div>
+        );
+      case 2: // Completed
+        return (
+          <div className="flex gap-2 mt-2">
+            {isClient && (
+              <Transaction
+                chainId={chain?.id}
+                calls={[
+                  {
+                    address: freelanceContractAddress,
+                    abi: freelanceContractAbi,
+                    functionName: "releasePayment",
+                    args: [BigInt(index)],
+                  },
+                ]}
+                onStatus={handleTransactionStatus}
+              >
+                <TransactionButton text="Release Payment" />
+                <TransactionStatus className="mt-2">
+                  <TransactionStatusLabel />
+                  <TransactionStatusAction />
+                </TransactionStatus>
+              </Transaction>
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
+
   function renderTasks() {
     return tasks.map((task, index) => (
       <div key={index} className="border p-4 mb-4 rounded-lg">
@@ -67,11 +178,12 @@ export function TaskList() {
         <p className="mb-1">Amount: {formatEther(task.amount)} ETH</p>
         <p className="mb-1">Deadline: {formatDate(task.deadline)}</p>
         <p className="mb-1">Status: {getStatusText(task.status)}</p>
+        {renderTaskActions(task, index)}
       </div>
     ));
   }
 
-  // Helper functions remain the same...
+  // Helper functions
   function shortenAddress(address: string) {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
@@ -93,13 +205,33 @@ export function TaskList() {
       case 2:
         return "Completed";
       default:
-        return "Unknown";
+        return "Funds Released";
     }
   }
 
   return (
     <div className="mt-8">
-      <h2 className="text-xl font-bold mb-4">Task List</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Task List</h2>
+        <Wallet>
+          <ConnectWallet>
+            <Avatar className="h-6 w-6" />
+            <div className="flex items-center gap-2">
+              <Name />
+              <EthBalance />
+            </div>
+          </ConnectWallet>
+          <WalletDropdown>
+            <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+              <Avatar />
+              <Name />
+              <Address />
+              <EthBalance />
+            </Identity>
+            <WalletDropdownDisconnect />
+          </WalletDropdown>
+        </Wallet>
+      </div>
       {tasks.length > 0 ? renderTasks() : <p>No tasks created yet.</p>}
     </div>
   );
