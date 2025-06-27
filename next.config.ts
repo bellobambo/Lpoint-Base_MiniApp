@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  env: {
+    FARCASTER_HEADER: process.env.FARCASTER_HEADER,
+  },
 };
 
 export default nextConfig;
