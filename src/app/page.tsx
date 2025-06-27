@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { sdk } from "@farcaster/frame-sdk";
+
 import { Address, Avatar, Identity, Name } from "@coinbase/onchainkit/identity";
 import {
   Transaction,
@@ -30,6 +32,10 @@ export default function Home() {
   const [description, setDescription] = useState("");
   const [amountEth, setAmountEth] = useState("");
   const [daysFromNow, setDaysFromNow] = useState<number>(1);
+
+  useEffect(() => {
+    sdk.actions.ready();
+  }, []);
 
   // Calculate deadline (current time + daysFromNow in seconds)
   const deadline = Math.floor(Date.now() / 1000) + daysFromNow * 24 * 60 * 60;
