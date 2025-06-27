@@ -29,7 +29,7 @@ export default function Home() {
   const { address, chain } = useAccount();
   const [description, setDescription] = useState("");
   const [amountEth, setAmountEth] = useState("");
-  const [daysFromNow, setDaysFromNow] = useState<number>(3);
+  const [daysFromNow, setDaysFromNow] = useState<number>(1);
 
   // Calculate deadline (current time + daysFromNow in seconds)
   const deadline = Math.floor(Date.now() / 1000) + daysFromNow * 24 * 60 * 60;
@@ -94,7 +94,6 @@ export default function Home() {
             value={daysFromNow}
             onChange={(e) => setDaysFromNow(Number(e.target.value))}
             className="w-full p-2 border rounded mb-4"
-            min={1}
             placeholder="e.g. 3"
             required
           />
