@@ -1,7 +1,5 @@
 "use client";
 
-import { freelanceContractAddress } from "@/app/call";
-import { freelanceContractAbi } from "@/app/page";
 import { useEffect, useState } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import {
@@ -25,6 +23,10 @@ import {
   Name,
   EthBalance,
 } from "@coinbase/onchainkit/identity";
+import {
+  freelanceContractAbi,
+  freelanceContractAddress,
+} from "@/app/freelanceABI";
 
 interface Task {
   client: `0x${string}`;
