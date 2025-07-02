@@ -6,6 +6,8 @@ import { coinbaseWallet } from "wagmi/connectors";
 export function getConfig() {
   return createConfig({
     chains: [baseSepolia], // add baseSepolia for testing
+    multiInjectedProviderDiscovery: false,
+
     connectors: [
       coinbaseWallet({
         appName: "OnchainKit",
