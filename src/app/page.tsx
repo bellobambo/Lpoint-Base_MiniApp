@@ -5,6 +5,7 @@ import { sdk } from "@farcaster/frame-sdk";
 import { useAccount, useCapabilities, useWriteContract } from "wagmi";
 import { Address, Avatar, Identity, Name } from "@coinbase/onchainkit/identity";
 import {
+  Transaction,
   TransactionStatus,
   TransactionStatusAction,
   TransactionStatusLabel,
@@ -163,16 +164,26 @@ export default function Home() {
                 {Object.keys(capabilities).length > 0 ? "(Gasless)" : ""}
               </button>
 
-              {transactionHash && (
-                <div className="mt-2">
+              {isCorrectNetwork && description && isValidAmount && (
+                <Transaction
+                  chainId={BASE_SEPOLIA_CHAIN_ID}
+                  isSponsored={Object.keys(capabilities).length > 0}
+                  calls={[
+                    {
+                      address: freelanceContractAddress,
+                      abi: freelanceContractAbi,
+                      functionName: "createTask",
+                      args: [description, deadline],
+                      value: parseEther(amountEth),
+                    },
+                  ]}
+                  onStatus={(status) => console.log("Status:", status)}
+                >
                   <TransactionStatus>
                     <TransactionStatusLabel />
                     <TransactionStatusAction />
                   </TransactionStatus>
-                  <p className="text-sm mt-1 break-all">
-                    TX Hash: {transactionHash}
-                  </p>
-                </div>
+                </Transaction>
               )}
             </div>
           )}

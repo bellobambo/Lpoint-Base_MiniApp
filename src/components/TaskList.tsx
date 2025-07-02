@@ -71,7 +71,8 @@ export function TaskList() {
     if (tasksData) {
       const loadedTasks = tasksData
         .map((item) => item.result as Task | undefined)
-        .filter(Boolean) as Task[];
+        .filter(Boolean)
+        .reverse() as Task[];
       setTasks(loadedTasks);
     }
   }, [tasksData]);
