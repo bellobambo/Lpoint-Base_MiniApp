@@ -98,7 +98,7 @@ export default function Home() {
   ]);
 
   return (
-    <div className="p-4 max-w-md mx-auto">
+    <div className="p-4 max-w-[70%] mx-auto">
       {/* Wallet Connection */}
       <Wallet>
         <ConnectWallet>
@@ -189,7 +189,7 @@ export default function Home() {
           )}
         </>
       ) : (
-        <p className="mt-4 text-center">
+        <p className="mt-4 text-center font-bold">
           Please connect your wallet to create a task.
         </p>
       )}

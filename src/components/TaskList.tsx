@@ -168,19 +168,24 @@ export function TaskList() {
 
   function renderTasks() {
     return tasks.map((task, index) => (
-      <div key={index} className="border p-4 mb-4 rounded-lg bg-[#1E293B]">
-        <h3 className="font-bold mb-2">Task #{index + 1}</h3>
-        <p className="mb-1">Description: {task.description}</p>
-        <p className="mb-1">Client: {shortenAddress(task.client)}</p>
-        <p className="mb-1">
+      <div
+        key={index}
+        className="border p-4 mb-4 rounded-lg bg-[#4f5968] text-white "
+      >
+        <h3 className="font-bold mb-2 text-white">Task #{index + 1}</h3>
+        <p className="mb-1 text-white">Description: {task.description}</p>
+        <p className="mb-1 text-white">Client: {shortenAddress(task.client)}</p>
+        <p className="mb-1 text-white">
           Freelancer:{" "}
           {task.freelancer === "0x0000000000000000000000000000000000000000"
             ? "Not assigned"
             : shortenAddress(task.freelancer)}
         </p>
-        <p className="mb-1">Amount: {formatEther(task.amount)} ETH</p>
-        <p className="mb-1">Deadline: {formatDate(task.deadline)}</p>
-        <p className="mb-1">Status: {getStatusText(task.status)}</p>
+        <p className="mb-1 text-white">
+          Amount: {formatEther(task.amount)} ETH
+        </p>
+        <p className="mb-1 text-white">Deadline: {formatDate(task.deadline)}</p>
+        <p className="mb-1 text-white">Status: {getStatusText(task.status)}</p>
         {renderTaskActions(task, index)}
       </div>
     ));
@@ -235,7 +240,13 @@ export function TaskList() {
           </WalletDropdown>
         </Wallet>
       </div>
-      {tasks.length > 0 ? renderTasks() : <p>No tasks created yet.</p>}
+      {tasks.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {renderTasks()}
+        </div>
+      ) : (
+        <p>No tasks created yet.</p>
+      )}
     </div>
   );
 }
