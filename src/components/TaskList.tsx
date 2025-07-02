@@ -137,7 +137,7 @@ export function TaskList() {
         );
       case 2: // Completed
         return (
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-2 ">
             {isClient && (
               <Transaction
                 chainId={chain?.id}
@@ -167,7 +167,7 @@ export function TaskList() {
 
   function renderTasks() {
     return tasks.map((task, index) => (
-      <div key={index} className="border p-4 mb-4 rounded-lg">
+      <div key={index} className="border p-4 mb-4 rounded-lg bg-[#1E293B]">
         <h3 className="font-bold mb-2">Task #{index + 1}</h3>
         <p className="mb-1">Description: {task.description}</p>
         <p className="mb-1">Client: {shortenAddress(task.client)}</p>

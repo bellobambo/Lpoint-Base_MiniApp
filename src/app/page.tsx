@@ -1,26 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { sdk } from "@farcaster/frame-sdk";
-
+import { useAccount, useCapabilities, useWriteContract } from "wagmi";
 import { Address, Avatar, Identity, Name } from "@coinbase/onchainkit/identity";
 import {
-  Transaction,
-  TransactionButton,
-  TransactionSponsor,
   TransactionStatus,
   TransactionStatusAction,
   TransactionStatusLabel,
 } from "@coinbase/onchainkit/transaction";
-import type { LifecycleStatus } from "@coinbase/onchainkit/transaction";
-import {
-  Wallet,
-  ConnectWallet,
-  WalletDropdown,
-  WalletDropdownDisconnect,
-} from "@coinbase/onchainkit/wallet";
-import { useAccount } from "wagmi";
-
+import { Wallet, ConnectWallet } from "@coinbase/onchainkit/wallet";
 import { parseEther } from "viem";
 import { TaskList } from "@/components/TaskList";
 import { freelanceContractAbi, freelanceContractAddress } from "./freelanceABI";
@@ -31,36 +20,81 @@ export default function Home() {
   const { address, chain } = useAccount();
   const [description, setDescription] = useState("");
   const [amountEth, setAmountEth] = useState("");
-  const [daysFromNow, setDaysFromNow] = useState<number>(1);
+  const [daysFromNow, setDaysFromNow] = useState<any>(1);
+  const [transactionHash, setTransactionHash] = useState<string | undefined>(
+    undefined
+  );
+
+  const { writeContract } = useWriteContract({
+    mutation: {
+      onSuccess: (hash) => setTransactionHash(hash),
+      onError: (error) => console.error("Transaction failed:", error),
+    },
+  });
+
+  const { data: availableCapabilities } = useCapabilities({
+    account: address,
+  });
 
   useEffect(() => {
     sdk.actions.ready();
   }, []);
 
-  // Calculate deadline (current time + daysFromNow in seconds)
-  const deadline = Math.floor(Date.now() / 1000) + daysFromNow * 24 * 60 * 60;
-
-  const handleOnStatus = useCallback((status: LifecycleStatus) => {
-    console.log("Transaction Status:", status);
-  }, []);
-
-  // Validate amount before creating transaction
   const isValidAmount =
     amountEth && !isNaN(Number(amountEth)) && Number(amountEth) > 0;
 
-  // Prepare transaction calls with proper typing
-  const calls = [
-    {
-      address: freelanceContractAddress, // Using 'address' instead of 'to'
+  const isCorrectNetwork = chain?.id === BASE_SEPOLIA_CHAIN_ID;
+
+  const capabilities = useMemo(() => {
+    if (!availableCapabilities || !chain?.id) return {};
+    const capabilitiesForChain = availableCapabilities[chain.id];
+
+    if (
+      capabilitiesForChain["PaymasterService"] &&
+      capabilitiesForChain["PaymasterService"].supported
+    ) {
+      return {
+        PaymasterService: {
+          url: process.env.NEXT_PUBLIC_PAYMASTER_PROXY_SERVER_URL as string,
+        },
+      };
+    }
+    return {};
+  }, [availableCapabilities, chain?.id]);
+
+  const deadline = BigInt(
+    Math.floor(Date.now() / 1000) + daysFromNow * 24 * 60 * 60
+  );
+
+  const handleCreateTask = useCallback(() => {
+    if (
+      !isCorrectNetwork ||
+      !description ||
+      !daysFromNow ||
+      !isValidAmount ||
+      !address
+    )
+      return;
+
+    writeContract({
+      address: freelanceContractAddress,
       abi: freelanceContractAbi,
       functionName: "createTask",
       args: [description, deadline],
-      value: isValidAmount ? parseEther(amountEth) : BigInt(0),
-    },
-  ];
-
-  // Check if we're on the correct network
-  const isCorrectNetwork = chain?.id === BASE_SEPOLIA_CHAIN_ID;
+      value: parseEther(amountEth),
+      ...(Object.keys(capabilities).length > 0 ? { capabilities } : {}),
+    });
+  }, [
+    address,
+    amountEth,
+    capabilities,
+    deadline,
+    description,
+    daysFromNow,
+    isValidAmount,
+    isCorrectNetwork,
+    writeContract,
+  ]);
 
   return (
     <div className="p-4 max-w-md mx-auto">
@@ -88,7 +122,7 @@ export default function Home() {
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full p-2 border rounded mb-4"
+            className="w-full p-2 border rounded mb-4 bg-[#1E293B]"
             placeholder="What needs to be done?"
             required
           />
@@ -99,7 +133,7 @@ export default function Home() {
             type="number"
             value={daysFromNow}
             onChange={(e) => setDaysFromNow(Number(e.target.value))}
-            className="w-full p-2 border rounded mb-4"
+            className="w-full p-2 border rounded mb-4 bg-[#1E293B]"
             placeholder="e.g. 3"
             required
           />
@@ -110,7 +144,7 @@ export default function Home() {
             type="number"
             value={amountEth}
             onChange={(e) => setAmountEth(e.target.value)}
-            className="w-full p-2 border rounded mb-4"
+            className="w-full p-2 border rounded mb-4 bg-[#1E293B]"
             placeholder="e.g. 0.01"
             step="0.001"
             min="0.001"
@@ -119,19 +153,28 @@ export default function Home() {
 
           {/* Transaction Section */}
           {isCorrectNetwork && description && daysFromNow && isValidAmount && (
-            <Transaction
-              chainId={BASE_SEPOLIA_CHAIN_ID}
-              calls={calls}
-              onStatus={handleOnStatus}
-            >
-              <TransactionButton />
+            <div className=" bg-blue-500 hover:bg-blue-700">
+              <button
+                onClick={handleCreateTask}
+                className="w-full bg-[#1E293B] hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                disabled={!address}
+              >
+                Create Task{" "}
+                {Object.keys(capabilities).length > 0 ? "(Gasless)" : ""}
+              </button>
 
-              <TransactionSponsor />
-              <TransactionStatus className="mt-2">
-                <TransactionStatusLabel />
-                <TransactionStatusAction />
-              </TransactionStatus>
-            </Transaction>
+              {transactionHash && (
+                <div className="mt-2">
+                  <TransactionStatus>
+                    <TransactionStatusLabel />
+                    <TransactionStatusAction />
+                  </TransactionStatus>
+                  <p className="text-sm mt-1 break-all">
+                    TX Hash: {transactionHash}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </>
       ) : (
@@ -139,8 +182,9 @@ export default function Home() {
           Please connect your wallet to create a task.
         </p>
       )}
-
-      <TaskList />
+      <div className="]">
+        <TaskList />
+      </div>
     </div>
   );
 }
