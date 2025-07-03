@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAccount, useReadContracts } from "wagmi";
+import { useEffect, useState, useMemo } from "react";
+import { useAccount, useReadContracts, useCapabilities } from "wagmi";
 import {
   Transaction,
   TransactionButton,
@@ -37,9 +37,34 @@ interface Task {
   status: number;
 }
 
+const BASE_SEPOLIA_CHAIN_ID = 84532;
+
 export function TaskList() {
   const { address, chain } = useAccount();
   const [tasks, setTasks] = useState<Task[]>([]);
+
+  const { data: availableCapabilities } = useCapabilities({
+    account: address,
+  });
+
+  const isCorrectNetwork = chain?.id === BASE_SEPOLIA_CHAIN_ID;
+
+  const capabilities = useMemo(() => {
+    if (!availableCapabilities || !chain?.id) return {};
+    const capabilitiesForChain = availableCapabilities[chain.id];
+
+    if (
+      capabilitiesForChain["PaymasterService"] &&
+      capabilitiesForChain["PaymasterService"].supported
+    ) {
+      return {
+        PaymasterService: {
+          url: process.env.NEXT_PUBLIC_PAYMASTER_PROXY_SERVER_URL as string,
+        },
+      };
+    }
+    return {};
+  }, [availableCapabilities, chain?.id]);
 
   // Get total number of tasks
   const { data: countData } = useReadContracts({
@@ -82,18 +107,20 @@ export function TaskList() {
   };
 
   function renderTaskActions(task: Task, index: number) {
-    if (!address) return null;
+    if (!address || !isCorrectNetwork) return null;
 
     const isClient = address === task.client;
     const isFreelancer = address === task.freelancer;
     const isUnassigned =
       task.freelancer === "0x0000000000000000000000000000000000000000";
+    const hasPaymaster = Object.keys(capabilities).length > 0;
 
     switch (task.status) {
       case 0: // Created
         return isUnassigned ? (
           <Transaction
-            chainId={chain?.id}
+            chainId={BASE_SEPOLIA_CHAIN_ID}
+            isSponsored={hasPaymaster}
             calls={[
               {
                 address: freelanceContractAddress,
@@ -104,7 +131,9 @@ export function TaskList() {
             ]}
             onStatus={handleTransactionStatus}
           >
-            <TransactionButton text="Accept Task" />
+            <TransactionButton
+              text={`Accept Task ${hasPaymaster ? "(Gasless)" : ""}`}
+            />
             <TransactionStatus className="mt-2">
               <TransactionStatusLabel />
               <TransactionStatusAction />
@@ -116,7 +145,8 @@ export function TaskList() {
           <div className="flex gap-2 mt-2">
             {isFreelancer && (
               <Transaction
-                chainId={chain?.id}
+                chainId={BASE_SEPOLIA_CHAIN_ID}
+                isSponsored={hasPaymaster}
                 calls={[
                   {
                     address: freelanceContractAddress,
@@ -127,7 +157,9 @@ export function TaskList() {
                 ]}
                 onStatus={handleTransactionStatus}
               >
-                <TransactionButton text="Mark Complete" />
+                <TransactionButton
+                  text={`Mark Complete ${hasPaymaster ? "(Gasless)" : ""}`}
+                />
                 <TransactionStatus className="mt-2">
                   <TransactionStatusLabel />
                   <TransactionStatusAction />
@@ -141,7 +173,8 @@ export function TaskList() {
           <div className="flex gap-2 mt-2 ">
             {isClient && (
               <Transaction
-                chainId={chain?.id}
+                chainId={BASE_SEPOLIA_CHAIN_ID}
+                isSponsored={hasPaymaster}
                 calls={[
                   {
                     address: freelanceContractAddress,
@@ -152,7 +185,9 @@ export function TaskList() {
                 ]}
                 onStatus={handleTransactionStatus}
               >
-                <TransactionButton text="Release Payment" />
+                <TransactionButton
+                  text={`Release Payment ${hasPaymaster ? "(Gasless)" : ""}`}
+                />
                 <TransactionStatus className="mt-2">
                   <TransactionStatusLabel />
                   <TransactionStatusAction />
@@ -163,6 +198,31 @@ export function TaskList() {
         );
       default:
         return null;
+    }
+  }
+
+  function shortenAddress(address: string) {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
+
+  function formatEther(wei: bigint) {
+    return Number(wei) / 1e18;
+  }
+
+  function formatDate(timestamp: bigint) {
+    return new Date(Number(timestamp) * 1000).toLocaleString();
+  }
+
+  function getStatusText(status: number) {
+    switch (status) {
+      case 0:
+        return "Created";
+      case 1:
+        return "Accepted";
+      case 2:
+        return "Completed";
+      default:
+        return "Funds Released";
     }
   }
 
@@ -191,32 +251,6 @@ export function TaskList() {
     ));
   }
 
-  // Helper functions
-  function shortenAddress(address: string) {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  }
-
-  function formatEther(wei: bigint) {
-    return Number(wei) / 1e18;
-  }
-
-  function formatDate(timestamp: bigint) {
-    return new Date(Number(timestamp) * 1000).toLocaleString();
-  }
-
-  function getStatusText(status: number) {
-    switch (status) {
-      case 0:
-        return "Created";
-      case 1:
-        return "Accepted";
-      case 2:
-        return "Completed";
-      default:
-        return "Funds Released";
-    }
-  }
-
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-4">
@@ -240,12 +274,20 @@ export function TaskList() {
           </WalletDropdown>
         </Wallet>
       </div>
+
       {tasks.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {renderTasks()}
         </div>
       ) : (
         <p>No tasks created yet.</p>
+      )}
+
+      {!isCorrectNetwork && (
+        <div className="text-red-500 font-semibold mt-4">
+          Please connect to the Base Sepolia network (Chain ID:{" "}
+          {BASE_SEPOLIA_CHAIN_ID})
+        </div>
       )}
     </div>
   );
